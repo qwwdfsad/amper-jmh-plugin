@@ -1,4 +1,9 @@
 product: jvm/amper-plugin
 
+dependencies:
+  - org.openjdk.jmh:jmh-core:1.37
+  - org.openjdk.jmh:jmh-generator-bytecode:1.37
+  - org.ow2.asm:asm:9.7.1
+
 pluginInfo:
   settingsClass: JmhSettings

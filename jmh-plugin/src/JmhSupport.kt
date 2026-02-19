@@ -9,7 +9,7 @@ import kotlin.io.path.*
 fun createJmhJar(
     @Input moduleJar: CompilationArtifact, // Dep for
     @Input runtimeClasspath: Classpath, // to fat jar
-    @Input jmhGeneratorClasspath: Classpath, // to generate bytecode
+    @Input jmhGeneratorClasspath: Classpath, // compilation classpath for generated harness sources
     @Output outputJar: Path, // benchmarks.jar to run
     @Input moduleRootDir: Path, // Hack that I like
     mainClass: String,
@@ -31,7 +31,6 @@ fun createJmhJar(
     val generatorOutput = generateBenchmarkHarness(
         compiledClassesDir = compiledClassesDir,
         workDir = workDir,
-        generatorClasspath = jmhGeneratorClasspath.resolvedFiles,
         compilationClasspath = jmhGeneratorClasspath.resolvedFiles + runtimeClasspath.resolvedFiles,
     )
 

@@ -1,4 +1,4 @@
-import java.net.URLClassLoader
+import org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator
 import java.nio.file.Path
 import kotlin.io.path.*
 
@@ -11,20 +11,30 @@ import kotlin.io.path.*
 fun generateBenchmarkHarness(
     compiledClassesDir: Path,
     workDir: Path,
-    generatorClasspath: List<Path>,
     compilationClasspath: List<Path>,
 ): GeneratedBenchmarkOutput {
     val generatedSourcesDir = workDir.resolve("generated-sources").apply { createDirectories() }
     val generatedResourcesDir = workDir.resolve("generated-resources").apply { createDirectories() }
     val generatedClassesDir = workDir.resolve("generated-classes").apply { createDirectories() }
 
-    // Step 1: Run JmhBytecodeGenerator via reflection
-    runBytecodeGenerator(
-        compiledClassesDir = compiledClassesDir,
-        generatedSourcesDir = generatedSourcesDir,
-        generatedResourcesDir = generatedResourcesDir,
-        generatorClasspath = generatorClasspath,
-    )
+    // Step 1: Run JMH bytecode generator directly
+    // ASMMethodInfo.getAnnotation() uses Thread.contextClassLoader for Proxy.newProxyInstance.
+    // Amper's default context classloader can't see JMH annotations, so we set it to the
+    // plugin's classloader which has jmh-core (and thus the annotation classes) on it.
+    // TODO I have no idea why I need this shenanigan. To figure
+    println("Running JMH bytecode generator on $compiledClassesDir...")
+    val previousContextCL = Thread.currentThread().contextClassLoader
+    try {
+        Thread.currentThread().contextClassLoader = JmhBytecodeGenerator::class.java.classLoader
+        JmhBytecodeGenerator.main(arrayOf(
+            compiledClassesDir.toString(),
+            generatedSourcesDir.toString(),
+            generatedResourcesDir.toString(),
+            "asm",
+        ))
+    } finally {
+        Thread.currentThread().contextClassLoader = previousContextCL
+    }
 
     // Step 2: Compile generated Java sources
     val generatedJavaFiles = generatedSourcesDir.toFile()
@@ -51,38 +61,6 @@ data class GeneratedBenchmarkOutput(
     val classesDir: Path,
     val resourcesDir: Path,
 )
-
-private fun runBytecodeGenerator(
-    compiledClassesDir: Path,
-    generatedSourcesDir: Path,
-    generatedResourcesDir: Path,
-    generatorClasspath: List<Path>,
-) {
-    // Build URLClassLoader with generator jars + compiled classes (generator needs to load them)
-    val urls = (generatorClasspath + listOf(compiledClassesDir)).map { it.toUri().toURL() }.toTypedArray()
-    val classLoader = URLClassLoader(urls, ClassLoader.getPlatformClassLoader())
-
-    val previousContextCL = Thread.currentThread().contextClassLoader
-    try {
-        Thread.currentThread().contextClassLoader = classLoader
-
-        val generatorClass = classLoader.loadClass("org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator")
-        val mainMethod = generatorClass.getMethod("main", Array<String>::class.java)
-
-        val args = arrayOf(
-            compiledClassesDir.toString(),
-            generatedSourcesDir.toString(),
-            generatedResourcesDir.toString(),
-            "asm",
-        )
-
-        println("Running JMH bytecode generator on $compiledClassesDir...")
-        mainMethod.invoke(null, args)
-    } finally {
-        Thread.currentThread().contextClassLoader = previousContextCL
-        classLoader.close()
-    }
-}
 
 private fun compileGeneratedSources(
     javaFiles: List<Path>,
@@ -117,6 +95,7 @@ private fun compileGeneratedSources(
     }
 }
 
+// TODO: this is weird. Should figure how to use one provisioned by Amper along with the corresponding --release
 private fun findJavac(): Path {
     val javaHome = Path(System.getProperty("java.home"))
 
@@ -127,7 +106,6 @@ private fun findJavac(): Path {
     javaHome.parent?.resolve("bin/javac")?.takeIf { it.exists() }?.let { return it }
 
     // Amper cache: look for a JDK/JBR sibling in the same cache directory
-    // e.g. java.home = .../Amper/zulu-jre/... -> look for .../Amper/jbr-*/...
     val amperCache = generateSequence(javaHome) { it.parent }
         .firstOrNull { it.name == "Amper" }
     if (amperCache != null) {
