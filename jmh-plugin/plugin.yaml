@@ -1,0 +1,12 @@
+tasks:
+  jmh-jar:
+    action: !createJmhJar
+      moduleJar: ${module.jar}
+      runtimeClasspath: ${module.runtimeClasspath}
+      jmhGeneratorClasspath:
+        - org.openjdk.jmh:jmh-core:1.37
+        - org.openjdk.jmh:jmh-generator-bytecode:1.37
+        - org.ow2.asm:asm:9.7.1
+      outputJar: "${taskOutputDir}/benchmarks.jar"
+      moduleRootDir: ${module.rootDir}
+      mainClass: ${pluginSettings.mainClass}

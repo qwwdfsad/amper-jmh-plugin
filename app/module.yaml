@@ -1,0 +1,11 @@
+product: jvm/app
+
+settings:
+  jvm:
+    release: 17
+
+dependencies:
+  - org.openjdk.jmh:jmh-core:1.37
+
+plugins:
+  jmh-plugin: enabled
