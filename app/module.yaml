@@ -3,6 +3,10 @@ product: jvm/app
 settings:
   jvm:
     release: 17
+  kotlin:
+    serialization:
+      enabled: true
+      format: json
 
 dependencies:
   - org.openjdk.jmh:jmh-core:1.37
