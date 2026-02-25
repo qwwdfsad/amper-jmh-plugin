@@ -21,7 +21,6 @@ fun generateBenchmarkHarness(
     // ASMMethodInfo.getAnnotation() uses Thread.contextClassLoader for Proxy.newProxyInstance.
     // Amper's default context classloader can't see JMH annotations, so we set it to the
     // plugin's classloader which has jmh-core (and thus the annotation classes) on it.
-    // TODO I have no idea why I need this shenanigan. To figure
     println("Running JMH bytecode generator on $compiledClassesDir...")
     val previousContextCL = Thread.currentThread().contextClassLoader
     try {
